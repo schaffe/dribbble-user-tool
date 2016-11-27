@@ -2,32 +2,42 @@ package com.dzidzoiev.dribbble.controllers
 
 import javax.inject.Inject
 
-import play.api.libs.json.Json
+import play.api.Configuration
+import play.api.libs.json.{JsValue, Json}
 import play.api.libs.ws.WSClient
 import play.api.libs.ws.ahc.AhcCurlRequestLogger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.concurrent.Future
 
-class DribbleRestClient @Inject()(ws: WSClient) {
+class DribbleRestClient @Inject()(ws: WSClient, config: Configuration) {
   implicit val userReads = Json.reads[User]
   implicit val followerReads = Json.reads[Follower]
+  implicit val shotReads = Json.reads[Shot]
 
   val baseUrl = "https://api.dribbble.com/v1"
-  val authKey = "b461e4de7c623018749a55b7e6eb5e8fe7e0ba0b6950764cb4c2552bff013e3c"
 
   def getFollowers(id: String, page: Int, pagesize: Int): Future[List[User]] = {
-    ws.url(baseUrl + "/users/" + id + "/followers")
+    doPagedRequest("/users/" + id + "/followers", page, pagesize)
+      .map(userJson => userJson.validate[List[Follower]].get.map(f => f.follower))
+  }
+
+  def getShots(id: String, page: Int, pagesize: Int): Future[List[Shot]] = {
+    doPagedRequest("/users/" + id + "/shots", page, pagesize)
+      .map(userJson => userJson.validate[List[Shot]].get)
+  }
+
+  private def doPagedRequest(urlPath: String, page: Int, pagesize: Int): Future[JsValue] = {
+    ws.url(baseUrl + urlPath)
       .withRequestFilter(AhcCurlRequestLogger())
       .withQueryString(("per_page", pagesize))
       .withQueryString(("page", page))
-      .withHeaders(("Authorization", "Bearer " + authKey))
+      .withHeaders(("Authorization", "Bearer " + config.getString("dribble.auth-key")))
       .get()
       .map({
         case resp if resp.status == 200 => resp.json
         case error => throw DribbleException(error.json)
       })
-      .map(userJson => userJson.validate[List[Follower]].get.map(f => f.follower))
   }
 
   implicit def intToString(int: Int): String = int.toString

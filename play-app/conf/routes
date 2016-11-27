@@ -3,4 +3,4 @@
 # ~~~~
 
 # Home page
-GET        /followers/:userId        com.dzidzoiev.dribbble.controllers.DribbbleController.getFollowers(userId)
+GET        /followers/:userId        com.dzidzoiev.dribbble.controllers.DribbleController.getFollowers(userId)
