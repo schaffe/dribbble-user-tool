@@ -1,8 +1,8 @@
 package com.dzidzoiev.dribbble.controllers.di
 
-import javax.inject.{Inject, Named, Singleton}
+import javax.inject.{Named, Singleton}
 
-import com.dzidzoiev.dribbble.controllers.UserActor
+import com.dzidzoiev.dribbble.controllers.paging.PagedFetchActor
 import com.google.inject.{AbstractModule, Provides}
 import play.api.Configuration
 import play.libs.akka.AkkaGuiceSupport
@@ -10,7 +10,7 @@ import play.libs.akka.AkkaGuiceSupport
 class GuiceConfigModule extends AbstractModule with AkkaGuiceSupport {
 
   def configure() = {
-    bindActor(classOf[UserActor], "user-actor")
+    bindActor(classOf[PagedFetchActor], "paging")
   }
 
   @Provides

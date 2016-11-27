@@ -3,11 +3,10 @@ package com.dzidzoiev.dribbble.controllers
 import javax.inject.Inject
 
 import com.dzidzoiev.dribbble.controllers.di.DribbleAuthKey
-import play.api.Configuration
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.{JsValue, Json}
 import play.api.libs.ws.WSClient
 import play.api.libs.ws.ahc.AhcCurlRequestLogger
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.concurrent.Future
 
