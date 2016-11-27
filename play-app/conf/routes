@@ -1,0 +1,6 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Home page
+GET        /followers/:userId        com.dzidzoiev.dribbble.controllers.DribbbleController.getFollowers(userId)
