@@ -7,38 +7,48 @@ import akka.contrib.pattern.Aggregator
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 
-class DribbleService @Inject()(system: ActorSystem, @Named("user-actor") userActor: ActorRef) {
+
+class DribbleService @Inject()(
+                                system: ActorSystem,
+                                @Named("user-actor") userActor: ActorRef,
+                                client: DribbleRestClient
+                              ) {
 
   def getFollowers(id: String) = {
-
+    val func: (Int, Int) => Future[List[User]] = client.getFollowers(id)
     val p = Promise[List[User]]
     val replyTo = system.actorOf(Props(new Actor {
       def receive = {
         case reply: List[User] =>
           p.success(reply)
           context.stop(self)
-        case e : Exception =>
+        case e: Exception =>
           p.failure(e)
           context.stop(self)
       }
     }))
-    userActor.tell(id, sender = replyTo)
+    userActor.tell(func, sender = replyTo)
     p.future
   }
 
 }
 
-class UserActor @Inject()(client: DribbleRestClient) extends Actor with Aggregator {
 
-  val pagesize = 10
-  val maxpage = 2
+class UserActor @Inject()(
+                           @Named("max-pages") limit: Int,
+                           @Named("pagesize") pagesize: Int
+                         )
+  extends Actor with Aggregator {
+
   val values = ListBuffer.empty[User]
   var resultRef = ActorRef.noSender
 
+  type FetchFunction = (Int, Int) => Future[List[User]]
+
   expectOnce {
-    case id: String => fetchPage(id, 0)
+    case func: FetchFunction => fetchPage(func, 0)
       this.resultRef = context.sender()
 
   }
@@ -47,19 +57,20 @@ class UserActor @Inject()(client: DribbleRestClient) extends Actor with Aggregat
     case GetPage(id, page) => fetchPage(id, page)
   }
 
-  def fetchPage(id: String, page: Int): Unit = {
-    if (page >= maxpage) reportResult
+  def fetchPage(fetch: FetchFunction, page: Int): Unit = {
+    if (page >= limit)
+      reportResult()
     else {
-      val future = client.getFollowers(id, page, pagesize)
+      val future = fetch(page, pagesize)
       future.onSuccess {
-          case users if users.isEmpty =>
-            reportResult
-          case users =>
-            values ++= users
-            self ! GetPage(id, page + 1)
-        }
+        case list if list.isEmpty =>
+          reportResult()
+        case batch =>
+          values ++= batch
+          self ! GetPage(fetch, page + 1)
+      }
       future.onFailure {
-        case e : Exception =>
+        case e: Exception =>
           resultRef ! e
           context.stop(self)
       }
@@ -67,11 +78,11 @@ class UserActor @Inject()(client: DribbleRestClient) extends Actor with Aggregat
 
   }
 
-  def reportResult: Unit = {
+  def reportResult(): Unit = {
     resultRef ! values.toList
     context.stop(self)
   }
 
-  case class GetPage(id: String, page: Int)
+  case class GetPage(fetch: FetchFunction, page: Int)
 
 }
