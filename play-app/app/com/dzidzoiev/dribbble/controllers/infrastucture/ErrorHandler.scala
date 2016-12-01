@@ -2,11 +2,13 @@ package com.dzidzoiev.dribbble.controllers.infrastucture
 
 import javax.inject._
 
+import com.dzidzoiev.dribbble.controllers.DribbleException
 import play.api.http.DefaultHttpErrorHandler
 import play.api._
 import play.api.mvc._
 import play.api.mvc.Results._
 import play.api.routing.Router
+
 import scala.concurrent._
 
 @Singleton
@@ -17,15 +19,15 @@ class ErrorHandler @Inject() (
                                router: Provider[Router]
                              ) extends DefaultHttpErrorHandler(env, config, sourceMapper, router) {
 
-  override def onProdServerError(request: RequestHeader, exception: UsefulException) = {
+
+  override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = {
     Future.successful(
-      InternalServerError("A server error occurred: " + exception.getMessage)
+      exception match {
+        case DribbleException(_) => InternalServerError(exception.getMessage)
+        case _ => InternalServerError("A server error occurred:  " + exception.getMessage)
+
+      }
     )
   }
 
-  override def onForbidden(request: RequestHeader, message: String) = {
-    Future.successful(
-      Forbidden("You're not allowed to access this resource.")
-    )
-  }
 }
