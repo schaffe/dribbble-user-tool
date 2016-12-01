@@ -8,13 +8,25 @@ import scala.concurrent.Future
 
 
 class DribbleService @Inject()(
-                                paging: PagingProvider[User],
-                                client: DribbleRestClient
+                                userPaging: PagingProvider[User],
+                                shotPaging: PagingProvider[Shot],
+                                restClient: DribbleRestClient
                               ) {
 
   def getFollowers(id: String) = {
-    val func: (Int, Int) => Future[List[User]] = client.getFollowers(id)
-    paging.fetchWithPaging(func)
+    val getFollowersFun: (Int, Int) => Future[List[User]] = restClient.getFollowers(id)
+    userPaging.fetchWithPaging(getFollowersFun)
   }
+
+  def getShots(id:String) = {
+    val getShotsFun: (Int, Int) => Future[List[Shot]] = restClient.getShots(id)
+    shotPaging.fetchWithPaging(getShotsFun)
+  }
+
+  def getLikes(id: String) = {
+    val getLikesFun: (Int, Int) => Future[List[User]] = restClient.getLikes(id)
+    userPaging.fetchWithPaging(getLikesFun)
+  }
+
 
 }

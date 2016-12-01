@@ -1,4 +1,4 @@
-package com.dzidzoiev.dribbble.controllers.di;
+package com.dzidzoiev.dribbble.controllers.infrastucture;
 
 import com.google.inject.BindingAnnotation;
 
