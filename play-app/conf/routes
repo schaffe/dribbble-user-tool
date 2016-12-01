@@ -3,6 +3,8 @@
 # ~~~~
 
 # Home page
+GET        /analyze/:userId          com.dzidzoiev.dribbble.controllers.DribbleController.analyzeLikes(userId)
+
 GET        /followers/:userId        com.dzidzoiev.dribbble.controllers.DribbleController.getFollowers(userId)
 GET        /likes/:likeId            com.dzidzoiev.dribbble.controllers.DribbleController.getLikes(likeId)
 GET        /shots/:shotId            com.dzidzoiev.dribbble.controllers.DribbleController.getShots(shotId)

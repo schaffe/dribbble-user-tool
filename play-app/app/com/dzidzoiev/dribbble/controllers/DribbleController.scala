@@ -2,13 +2,23 @@ package com.dzidzoiev.dribbble.controllers
 
 import javax.inject.Inject
 
+import com.dzidzoiev.dribbble.controllers.analyze.{AnalyzerService, Liker}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
 
-class DribbleController @Inject()(dribbleService: DribbleService) extends Controller {
+class DribbleController @Inject()(
+                                   dribbleService: DribbleService,
+                                   analyzerService: AnalyzerService
+                                 ) extends Controller {
   implicit val userWrites = Json.writes[User]
   implicit val shotWrites = Json.writes[Shot]
+  implicit val likerWrites = Json.writes[Liker]
+
+  def analyzeLikes(userId: String) = Action.async {
+    analyzerService.analyzeLikes(userId)
+      .map(followers => Ok(Json.toJson(followers)))
+  }
 
   def getFollowers(userId: String) = Action.async {
     dribbleService.getFollowers(userId)

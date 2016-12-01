@@ -42,7 +42,8 @@ class DribbleRestClient @Inject()(ws: WSClient, @DribbleAuthKey key: String) {
       .withHeaders(("Authorization", "Bearer " + key))
       .get()
       .map({
-        case resp if resp.status == 200 => resp.json
+        case resp if resp.status == 200 =>
+          resp.json
         case error => throw DribbleException(error.json)
       })
   }

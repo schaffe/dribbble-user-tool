@@ -13,18 +13,18 @@ class DribbleService @Inject()(
                                 restClient: DribbleRestClient
                               ) {
 
-  def getFollowers(id: String) = {
-    val getFollowersFun: (Int, Int) => Future[List[User]] = restClient.getFollowers(id)
+  def getFollowers(userId: String) = {
+    val getFollowersFun: (Int, Int) => Future[List[User]] = restClient.getFollowers(userId)
     userPaging.fetchWithPaging(getFollowersFun)
   }
 
-  def getShots(id:String) = {
-    val getShotsFun: (Int, Int) => Future[List[Shot]] = restClient.getShots(id)
+  def getShots(userId:String) = {
+    val getShotsFun: (Int, Int) => Future[List[Shot]] = restClient.getShots(userId)
     shotPaging.fetchWithPaging(getShotsFun)
   }
 
-  def getLikes(id: String) = {
-    val getLikesFun: (Int, Int) => Future[List[User]] = restClient.getLikes(id)
+  def getLikes(shotId: String) = {
+    val getLikesFun: (Int, Int) => Future[List[User]] = restClient.getLikes(shotId)
     userPaging.fetchWithPaging(getLikesFun)
   }
 
