@@ -1,6 +1,6 @@
 package com.dzidzoiev.dribbble.controllers
 
-import java.util.concurrent.{ScheduledThreadPoolExecutor, Semaphore, TimeUnit}
+import java.util.concurrent.{ScheduledFuture, ScheduledThreadPoolExecutor, Semaphore, TimeUnit}
 import javax.inject.Inject
 
 import com.dzidzoiev.dribbble.controllers.infrastucture.DribbleAuthKey
@@ -9,8 +9,8 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.libs.ws.WSClient
 import play.api.libs.ws.ahc.AhcCurlRequestLogger
 
-import scala.concurrent.blocking
-import scala.concurrent.{Future, Promise}
+import scala.collection.mutable
+import scala.concurrent.{Future, Promise, blocking}
 import scala.util.{Failure, Success}
 
 class DribbleRestClient @Inject()(ws: WSClient, @DribbleAuthKey key: String) {
@@ -68,18 +68,19 @@ class DribbleRestClient @Inject()(ws: WSClient, @DribbleAuthKey key: String) {
     val API_LIMIT = 60
     private val semaphore: Semaphore = new Semaphore(API_LIMIT)
     private val semaphoreReset = new ScheduledThreadPoolExecutor(1)
+    private val futureMap = mutable.Map.empty[ReleaseTask, ScheduledFuture[_]]
 
-    private val reset = new Runnable {
-      override def run() = blocking {
-        val available = semaphore.availablePermits()
-        semaphore.release(API_LIMIT - available)
-        semaphoreReset.remove(this)
+    case class ReleaseTask() extends Runnable {
+      override def run(): Unit = blocking {
+        semaphore.release()
+        futureMap.remove(this).get.cancel(false)
       }
     }
 
     def acquire() = blocking {
-      if (semaphoreReset.getTaskCount == 0)
-        semaphoreReset.scheduleAtFixedRate(reset, 0, 60, TimeUnit.SECONDS)
+      val task = ReleaseTask()
+      val future = semaphoreReset.scheduleAtFixedRate(task, 0, 5, TimeUnit.SECONDS)
+      futureMap += (task -> future)
       semaphore.acquire()
     }
   }
