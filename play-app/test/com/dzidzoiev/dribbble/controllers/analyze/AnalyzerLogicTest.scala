@@ -9,7 +9,7 @@ class AnalyzerLogicTest extends FunSuite {
   val user2: User = User(2, "B", "BB")
   val user3: User = User(3, "C", "CC")
 
-  test("empty group by should produce empty Seq") {
+  test("empty groupBy should produce empty Seq") {
     assert(AnalyzerLogic.groupById(List.empty).equals(Seq.empty))
   }
 

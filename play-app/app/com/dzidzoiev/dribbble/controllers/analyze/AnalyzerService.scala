@@ -13,6 +13,8 @@ class AnalyzerService @Inject()(
                                  actorSystem: ActorSystem,
                                  dribbleService: DribbleService
                                ) {
+  val LIMIT_RESULT_SIZE = 10
+
   def analyzeLikes(userId: String) = {
 
     val p = Promise[Seq[Liker]]
@@ -21,16 +23,24 @@ class AnalyzerService @Inject()(
         case reply: Result =>
           p.success(reply.likers)
           context.stop(self)
+        case exception: Exception =>
+          p.failure(exception)
+          context.stop(self)
       }
     }))
+
     val aggregator: ActorRef = actorSystem.actorOf(Props(new LikesAggregator(replyTo)))
 
-    dribbleService.getFollowers(userId)
-      .onSuccess({
-        case followers =>
-          extractShots(followers)
-          aggregator ! NotifyFollowersCount(followers.size)
-      })
+    val followersFuture = dribbleService.getFollowers(userId)
+    followersFuture.onSuccess({
+      case followers =>
+        extractShots(followers)
+        aggregator ! NotifyFollowersCount(followers.size)
+    })
+    followersFuture.onFailure({
+      case exception =>
+        aggregator ! exception
+    })
 
     def extractShots(followers: List[User]) = followers
       .map(follower => dribbleService.getShots(follower.id))
@@ -42,7 +52,7 @@ class AnalyzerService @Inject()(
             aggregator ! NotifyFollowerProcessed
         })
         future.onFailure({
-          case _ => aggregator ! NotifyFollowerProcessed
+          case exception => aggregator ! exception
         })
       })
 
@@ -54,7 +64,7 @@ class AnalyzerService @Inject()(
             aggregator ! NotifyShotProcessed(likes)
         })
         future.onFailure({
-          case _ => aggregator ! NotifyShotProcessed
+          case exception => aggregator ! exception
         })
       })
 
@@ -78,6 +88,9 @@ class AnalyzerService @Inject()(
         shotsCount -=1
         likers ++= likes
         checkReportResult()
+      case exception: Exception =>
+        resultListener ! exception
+        context.stop(self)
     }
 
     def checkReportResult(): Unit = {
@@ -88,7 +101,7 @@ class AnalyzerService @Inject()(
     }
 
     def analyze(likers: ListBuffer[User]): Seq[Liker] = {
-      AnalyzerLogic.groupByAndSort(likers.toList, 10)
+      AnalyzerLogic.groupByAndSort(likers.toList, LIMIT_RESULT_SIZE)
     }
   }
 
