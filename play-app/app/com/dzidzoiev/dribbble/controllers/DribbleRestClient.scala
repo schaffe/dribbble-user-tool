@@ -1,5 +1,6 @@
 package com.dzidzoiev.dribbble.controllers
 
+import java.util.concurrent.{ScheduledThreadPoolExecutor, Semaphore, TimeUnit}
 import javax.inject.Inject
 
 import com.dzidzoiev.dribbble.controllers.infrastucture.DribbleAuthKey
@@ -8,7 +9,9 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.libs.ws.WSClient
 import play.api.libs.ws.ahc.AhcCurlRequestLogger
 
-import scala.concurrent.Future
+import scala.concurrent.blocking
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success}
 
 class DribbleRestClient @Inject()(ws: WSClient, @DribbleAuthKey key: String) {
   implicit val userReads = Json.reads[User]
@@ -35,17 +38,50 @@ class DribbleRestClient @Inject()(ws: WSClient, @DribbleAuthKey key: String) {
 
 
   private def doPagedRequest(urlPath: String, page: Int, pagesize: Int): Future[JsValue] = {
-    ws.url(baseUrl + urlPath)
-      .withRequestFilter(AhcCurlRequestLogger())
-      .withQueryString(("per_page", pagesize))
-      .withQueryString(("page", page))
-      .withHeaders(("Authorization", "Bearer " + key))
-      .get()
-      .map({
-        case resp if resp.status == 200 =>
-          resp.json
-        case error => throw DribbleException(error.json)
-      })
+    val promise = Promise[JsValue]()
+    Future {
+      ApiLock.acquire()
+      ws.url(baseUrl + urlPath)
+        .withRequestFilter(AhcCurlRequestLogger())
+        .withQueryString(("per_page", pagesize))
+        .withQueryString(("page", page))
+        .withHeaders(("Authorization", "Bearer " + key))
+        .get()
+        .map({
+          case resp if resp.status == 200 =>
+            resp.json
+          case error => throw DribbleException(error.json)
+        })
+        .onComplete({
+          case Success(result) => promise.success(result)
+          case Failure(error) => promise.failure(error)
+        })
+    }
+    promise.future
+  }
+
+  /**
+    * Lock based on low-level concurrency mechanics,
+    * TODO: replace with actors and make available using multiple API keys
+    */
+  object ApiLock {
+    val API_LIMIT = 60
+    private val semaphore: Semaphore = new Semaphore(API_LIMIT)
+    private val semaphoreReset = new ScheduledThreadPoolExecutor(1)
+
+    private val reset = new Runnable {
+      override def run() = blocking {
+        val available = semaphore.availablePermits()
+        semaphore.release(API_LIMIT - available)
+        semaphoreReset.remove(this)
+      }
+    }
+
+    def acquire() = blocking {
+      if (semaphoreReset.getTaskCount == 0)
+        semaphoreReset.scheduleAtFixedRate(reset, 0, 60, TimeUnit.SECONDS)
+      semaphore.acquire()
+    }
   }
 
   implicit def intToString(int: Int): String = int.toString
