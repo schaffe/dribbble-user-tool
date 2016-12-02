@@ -79,7 +79,7 @@ class DribbleRestClient @Inject()(ws: WSClient, @DribbleAuthKey key: String) {
 
     def acquire() = blocking {
       val task = ReleaseTask()
-      val future = semaphoreReset.scheduleAtFixedRate(task, 0, 5, TimeUnit.SECONDS)
+      val future = semaphoreReset.scheduleAtFixedRate(task, 0, 60, TimeUnit.SECONDS)
       futureMap += (task -> future)
       semaphore.acquire()
     }
